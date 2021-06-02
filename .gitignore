@@ -1,0 +1,14 @@
+backup
+ets2-telemetry-server-master
+/SerialDisplay
+/atcmd/atcmd2
+/dashboard/ets2
+/*.zip
+/*.exe
+/*.ico
+/*.lpi
+/*.lps
+/*.res
+/scs-sdk-plugin
+/lib
+*.zip
