@@ -347,43 +347,51 @@ void displayData(ETS2Data *data)
   #ifdef TM1638_D
   if (data->electricEnabled)
   {
-    char vals[9];
+    char vals[4];
     const char *fmt;
     uint16_t dvals;
-
+    memset(vals, 32, 4);
     switch (dispId)
     {
     case 0:
-      fmt = PSTR("OIL %4d");
+      fmt = PSTR("OIL");
       dvals = data->oilPressure;
       break;
     case 1:
-      fmt = PSTR("AIR %4d");
+      fmt = PSTR("AIR");
       dvals = data->airPressure;
       break;
     case 2:
-      fmt = PSTR("T   %4d");
+      fmt = PSTR("T");
       dvals = data->waterTemp / 10;
       break;
     case 3:
-      fmt = PSTR("V   %4d");
+      fmt = PSTR("V");
       dvals = data->accumVoltage;
       break;
     case 4:
-      fmt = PSTR("BT  %4d");
+      fmt = PSTR("BT");
       dvals = data->brakeTemp / 10;
       break;
     case 5:
-      fmt = PSTR("OILT%4d");
+      fmt = PSTR("OILT");
       dvals = data->oilTemp / 10;
       break;
     case 6:
-      fmt = PSTR("FUEL%4d");
+      fmt = PSTR("FUEL");
       dvals = data->fuel;
       break;
     }
-    snprintf_P(vals, 9, fmt, dvals);
-    tmb.displayText(vals);
+    strcpy_P(vals, fmt);
+    //snprintf_P(vals, 9, fmt, dvals);
+    for (byte kl=0; kl < 4; kl++) {
+      tmb.displayASCII(kl, vals[kl]);
+    }
+    memset(vals, 32, 4);
+    itoa(dvals, vals, DEC);
+    for (byte kl=0; kl < 4; kl++) {
+      tmb.displayASCII(kl+4, vals[kl]);
+    }    
     tmbReseted = false;
   }
   else
