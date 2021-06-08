@@ -1,16 +1,8 @@
 {
 	"folders": [
 		{
-			"name": "stm32_test2",
-			"path": "..\\..\\..\\..\\stm\\pio\\stm32_test2"
-		},
-		{
 			"name": "atcmd",
 			"path": "atcmd"
-		},
-		{
-			"name": "atcmd2",
-			"path": "atcmd2"
 		}
 	],
 	"settings": {
