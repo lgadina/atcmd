@@ -53,6 +53,8 @@ type
     Label2: TLabel;
     Label3: TLabel;
     Label4: TLabel;
+    Label5: TLabel;
+    Memo1: TMemo;
     seSpeed: TSpinEdit;
     seRpm: TSpinEdit;
     seFuel: TSpinEdit;
@@ -108,6 +110,7 @@ type
   protected
     FData: TEUT2Data;
     FTh: TscsATSerialThread;
+    procedure DoOnCommand(Sender: TObject; Command: String);
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -288,6 +291,7 @@ begin
   Sleep(1000);
 end;
 
+
 procedure TForm1.fseFuelCapacityChange(Sender: TObject);
 begin
   FData.truckProperties.fuelCapacity:=fseFuelCapacity.Value;
@@ -356,8 +360,12 @@ begin
 end;
 
 procedure TForm1.seFuelChange(Sender: TObject);
+var v: integer;
 begin
   FData.fuel:=seFuel.Value;
+  v := TscsATSerialThread.map(Trunc(FData.fuel), 0, Trunc(fseFuelCapacity.Value), 0, 90);
+
+  Label5.Caption:= v.ToString + '/'+TscsATSerialThread.AngleToPulse(v).ToString;
 end;
 
 procedure TForm1.Timer1Timer(Sender: TObject);
@@ -372,16 +380,23 @@ begin
   end;
 end;
 
+procedure TForm1.DoOnCommand(Sender: TObject; Command: String);
+begin
+  Memo1.Lines.Insert(0, Command);
+end;
+
 constructor TForm1.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FData := TEUT2Data.create();
   FTh := TscsATSerialThread.Create(FData);
+  FTh.OnCommand := @DoOnCommand;
 end;
 
 destructor TForm1.Destroy;
 begin
   FData.Free;
+  FTh.Terminate;
   FTh.Free;
   inherited Destroy;
 end;

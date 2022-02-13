@@ -3,6 +3,10 @@
 		{
 			"name": "atcmd",
 			"path": "atcmd"
+		},
+		{
+			"name": "210711-151233-arduino-blink",
+			"path": "C:\\Users\\ПК\\Documents\\PlatformIO\\Projects\\210711-151233-arduino-blink"
 		}
 	],
 	"settings": {

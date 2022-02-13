@@ -13,6 +13,7 @@ uses
 type
 
   { TscsATSerialThread }
+  TOnETSCommandEvent = procedure(Sender: TObject; ACommand: String) of object;
 
   TscsATSerialThread = class(TThread)
   private
@@ -68,6 +69,8 @@ type
       end;*)
     private
       FData: TEUT2Data;
+      FCurrentCommand: String;
+      FOnCommand: TOnETSCommandEvent;
       FSerialHandle: LongInt;
       FNewConnecting: Boolean;
       FComPort: TBlockSerial;
@@ -82,9 +85,15 @@ type
       function SendAndWaitOk(AData: String): boolean;
       function SendAndReadData(AData: String): String;
       procedure Execute; override;
+      procedure DoOnCommand(ACommand: String);
+      procedure SendNotify;
     public
       constructor Create(AData: TEUT2Data);
       destructor Destroy; override;
+      property OnCommand: TOnETSCommandEvent read FOnCommand write FOnCommand;
+      class function map(val, in_min, in_max, out_min, out_max: integer): integer;
+      class function setServoPulse(pulse: double): word;
+      class function AngleToPulse(angle: Integer): word;
   end;
 
 implementation
@@ -98,10 +107,12 @@ var S, EE: String;
 begin
   if FComPort.Handle = INVALID_HANDLE_VALUE then
   begin
-    FComPort.Connect('COM6');
+    FComPort.Connect('COM7');
     if FComPort.Handle <> INVALID_HANDLE_VALUE then
      begin
        FComPort.Config(115200, 8, 'N', 1, false, false);
+       repeat
+       until FComPort.Recvstring(5000) = 'DONE';
        FComPort.ATCommand('AT');
        if FComPort.ATResult then
          begin
@@ -289,6 +300,8 @@ begin
   Result := '';
   Str := TStringList.Create;
   try
+    FCurrentCommand := AData;
+    Synchronize(@SendNotify);
     Str.Text := FComPort.ATCommand(AData);
     if Str.Text <> '' then
      Result := Str[0];
@@ -347,11 +360,43 @@ begin
   until Terminated;
 end;
 
+procedure TscsATSerialThread.DoOnCommand(ACommand: String);
+begin
+  if Assigned(FOnCommand) then
+   FOnCommand(Self, ACommand);
+end;
+
+procedure TscsATSerialThread.SendNotify;
+begin
+  DoOnCommand(FCurrentCommand);
+end;
+
+class function TscsATSerialThread.map(val, in_min, in_max, out_min, out_max: integer
+  ): integer;
+begin
+  result := (val - in_min) * (out_max - out_min) div (in_max - in_min) + out_min;
+end;
+
+class function TscsATSerialThread.setServoPulse(pulse: double): word;
+var pulseLen: double;
+begin
+ pulseLen:= 1000000/50/4096;
+ pulse := (pulse * 1000) / pulseLen;
+ result := trunc(pulse);
+end;
+
+class function TscsATSerialThread.AngleToPulse(angle: Integer): word;
+begin
+  Result := setServoPulse(angle/90+0.5);
+  if (result > 102) and (result < 510) then
+   Result := Trunc(Result * 0.915);
+end;
+
 constructor TscsATSerialThread.Create(AData: TEUT2Data);
 begin
   FData := AData;
   FComPort := TBlockSerial.Create;
-  FComPort.AtTimeout:= 2000;
+  FComPort.AtTimeout:= 5000;
   inherited Create(False);
 end;
 

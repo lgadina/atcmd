@@ -1,10 +1,30 @@
 //#define LCDI2C
 #define TFT130
 #define TM1638_D
+#define PCA9586_SRV
+
+#ifdef PCA9586_SRV
+  #undef TFT130
+  #undef TM1638_D
+#endif
 
 #include <Arduino.h>
 #include "ets2data.h"
 #include <commands.h>
+
+#ifdef PCA9586_SRV
+#include <Adafruit_PWMServoDriver.h>
+#include <Wire.h>
+#include <servogauge.h>
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+#define USE_DISPLAY_OBJECT
+
+#define SERVO_FREQ 50 // Analog servos run at ~50 Hz update
+
+#endif
+
 #ifdef ATMEGA32U4
 #include "Keyboard.h"
 #endif
@@ -18,16 +38,20 @@
 #endif
 
 #ifdef TFT130
+#define USE_DISPLAY_OBJECT
+
 #include <LCDWIKI_GUI.h>
 #include "SSD1283A.h" //Hardware-specific library
 #include "icons.h"
 #include "colors.h"
 #include "gauges.h"
-#define MAX_SPD 140
-#define MAX_RPM 3000
 #endif
 
 //#define DEBUG
+
+#define MAX_SPD 140
+#define MAX_RPM 3000
+
 
 #ifdef TM1638_D
 TM1638plus tmb(4, 5, 6, false);
@@ -45,7 +69,17 @@ static const uint16_t PGN_AIR_PRESSURE = 0xFEAE;       // SPN 1087 -reservoir 1,
 LiquidCrystal_I2C lcd(0x3f, 16, 2);
 #endif
 
+#ifdef PCA9586_SRV
+  ServoGauge fuelmeter(&pwm, 0, 0, 1200, 110, true);
+  ServoGauge airpressure(&pwm, 1, 0, 140, 110, true);
+  ServoGauge speedometer(&pwm, 2, 0, MAX_SPD, 180, true);
+  ServoGauge tachometer(&pwm, 3, 0, MAX_RPM, 180, true);
+  ServoGauge oilPressure(&pwm, 4, 0, 120, 110, true);
+  ServoGauge waterTemp(&pwm, 5, 0, 1200, 110, true);
+  ServoGauge oilTemp(&pwm, 6, 0, 1200, 110, true);
+  ServoGauge brakeTemp(&pwm, 7, 0, 2400, 110, true);
 
+#endif
 
 #ifdef TFT130
 
@@ -167,9 +201,10 @@ void displayData(ETS2Data *data)
   unsigned long tm = micros();
   word spd = (data->spd * 3.6) / 10;
 
-#ifdef TFT130
+#ifdef USE_DISPLAY_OBJECT
   speedometer.setValue(data->electricEnabled ? spd : 0);
 #endif
+
 
 #ifdef LCDI2C
   itoa(spd, tmp, 10);
@@ -275,27 +310,38 @@ void displayData(ETS2Data *data)
   }
 #endif
 
-#ifdef TFT130
-  tachometer.setValue(data->electricEnabled ? data->rpm : 0);
+#ifdef USE_DISPLAY_OBJECT
+  
+
   fuelmeter.setValue(data->electricEnabled ? data->fuel : 0);
   airpressure.setValue(data->electricEnabled ? data->airPressure : 0);
+  tachometer.setValue(data->electricEnabled ? data->rpm : 0);
   oilPressure.setValue(data->electricEnabled ? data->oilPressure : 0);
   waterTemp.setValue(data->electricEnabled ? data->waterTemp : 0);
-  accumVoltage.setValue(data->electricEnabled ? data->accumVoltage : 0);
   brakeTemp.setValue(data->electricEnabled ? data->brakeTemp : 0);
   oilTemp.setValue(data->electricEnabled ? data->oilTemp : 0);
+
+  #ifdef TFT130
+  
+  accumVoltage.setValue(data->electricEnabled ? data->accumVoltage : 0);
+  #endif
   //drawIcon(mylcd, iconBrakeWarn, 68, 130 - 11, data->airPressureWarning && data->electricEnabled ? RED : BLACK);
+  #ifdef TFT130
   iconBrakeWarningDisp.setValue(data->airPressureWarning && data->electricEnabled);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(2, data->airPressureWarning && data->electricEnabled ? 1 : 0);
   #endif
 
   //drawIcon(mylcd, iconHandbrake, 51, 130 - 11, data->parkingBracke && data->electricEnabled ? RED : BLACK);
+  #ifdef TFT130
   iconHandbrakeDisp.setValue(data->parkingBracke && data->electricEnabled);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(7, data->parkingBracke && data->electricEnabled ? 1 : 0);
   #endif
 
+  #ifdef TFT130
   // drawIcon(mylcd, iconLighHighBeam, 34, 130 - 11, data->lightHighBeam && data->lightHighBeam && data->electricEnabled ? BLUE : BLACK);
   iconLightHighBeamDisp.setValue(data->lightHighBeam && data->lightLowBeam && data->electricEnabled);
 
@@ -306,15 +352,19 @@ void displayData(ETS2Data *data)
   iconParkingLightDisp.setValue(data->lightParking);
   // drawIconBack(mylcd, iconLeftTurn, 102, 130 - 11, data->rightBlinkerLight ? GREEN : BLACK);
   iconRightTurnDisp.setValue(data->rightBlinkerLight);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(1, data->rightBlinkerLight ? 1 : 0);
   #endif
   // drawIcon(mylcd, iconLeftTurn, 85, 130 - 11, data->leftBlinkerLight ? GREEN : BLACK);
+  #ifdef TFT130
   iconLeftTurnDisp.setValue(data->leftBlinkerLight);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(0, data->leftBlinkerLight ? 1 : 0);
   #endif
 
+  #ifdef TFT130
   // drawIcon(mylcd, iconAccumWarning, 0, 130 - 24, data->batteryVoltageWarning && data->electricEnabled ? RED : BLACK);
   iconAccumWarningDisp.setValue(data->batteryVoltageWarning && data->electricEnabled);
   // drawIcon(mylcd, iconWaterWarning, 17, 130 - 24, data->waterTempWaring && data->electricEnabled ? RED : BLACK);
@@ -323,23 +373,31 @@ void displayData(ETS2Data *data)
   iconOilWarningDisp.setValue(data->oilPressureWarning && data->electricEnabled);
   // drawIcon(mylcd, iconCheckEngine, 51, 130 - 24, data->checkEngine && data->electricEnabled ? YELLOW : BLACK);
   iconCheckEngineDisp.setValue(data->checkEngine && data->electricEnabled);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(3, data->checkEngine && data->electricEnabled ? 1 : 0);
   #endif
-  // drawIcon(mylcd, iconWheelWarning, 68, 130 - 24, data->wheelWarning && data->electricEnabled ? YELLOW : BLACK);
+  
+  #ifdef TFT130
   iconWheelWarningDisp.setValue(data->wheelWarning && data->electricEnabled);
+  #endif
+
   #ifdef TM1638_D
   tmb.setLED(4, data->wheelWarning && data->electricEnabled ? 1 : 0);
   #endif
-  // drawIcon(mylcd, iconTransmissionWarning, 85, 130 - 24, data->transmissionWarning && data->electricEnabled ? YELLOW : BLACK);
+  #ifdef TFT130
   iconTransmissionWarningDisp.setValue(data->transmissionWarning && data->electricEnabled);
+  #endif
   #ifdef TM1638_D
   tmb.setLED(5, data->transmissionWarning && data->electricEnabled ? 1 : 0);
   #endif
-  // drawIcon(mylcd, iconCruiseControl, 102, 130 - 24, (data->cspd > 0) ? GREEN : BLACK);
+  
+  #ifdef TFT130
   iconCruiseControlDisp.setValue((data->cspd > 0));
 
   iconFuelWarningDisp.setValue(data->fuelWarning && data->electricEnabled);
+  #endif
+
   #ifdef TM1638_D
   tmb.setLED(6, data->fuelWarning && data->electricEnabled ? 1 : 0);
   #endif
@@ -404,6 +462,7 @@ void displayData(ETS2Data *data)
   }
   #endif
 
+  #ifdef TFT130
   mylcd.Set_Text_Mode(0);
   mylcd.Set_Text_colour(GREEN);
   mylcd.Set_Text_Back_colour(BLACK);
@@ -414,6 +473,7 @@ void displayData(ETS2Data *data)
   if (alltm < tm2)
     alltm = tm2;
   mylcd.Print_Number_Int((alltm > 1000 ? alltm / 1000 : alltm), 96, 80, 5, ' ', 10);
+  #endif
 #endif
 
 #ifdef LCDI2C
@@ -480,7 +540,6 @@ void _ATEIGN(boolean *echo, const InputBuffer buffer, ETS2Data *data)
   displayData(&ets2Data);
 }
 
-#ifdef TFT130
 void _ATEFLC(boolean *echo, const InputBuffer buffer, ETS2Data *data)
 {
   byte tmp = strlen_P(ATEFLC);
@@ -501,7 +560,28 @@ void _ATEFLC(boolean *echo, const InputBuffer buffer, ETS2Data *data)
   }
   displayData(&ets2Data);
 }
-#endif
+
+
+void _ATEFUEL(boolean *echo, const InputBuffer buffer, ETS2Data *data)
+{
+  byte tmp = strlen_P(ATEFUEL);
+  bool quet = false;
+  tmp += 3;
+  if (buffer[tmp] == '=')
+  {
+    quet = !*echo;
+    data->fuel = bufToInt(buffer, tmp + 1, 15, 0);
+  }
+  if (!quet)
+  {
+    char *buf = (char *)malloc(tmp + 1);
+    strcpy_P(buf, ATEFUEL);
+    printEcho(buf);
+    Serial.println(data->fuel);
+    free(buf);
+  }
+  displayData(&ets2Data);
+}
 
 void _ATESPD(boolean *echo, const InputBuffer buffer, ETS2Data *data)
 {
@@ -643,9 +723,10 @@ const FuncHandler handlers[] = {
     {ATERAW, _ATERAW},
     {ATEIGN, _ATEIGN},
     {ATELFT, _ATELFT},
-#ifdef TFT130    
+#ifdef USE_DISPLAY_OBJECT
     {ATEFLC, _ATEFLC},
 #endif    
+    {ATEFUEL, _ATEFUEL},
     {ATEE, _ATEE}};
 
 int DoHandleCommand(InputBuffer buffer)
@@ -664,17 +745,34 @@ int DoHandleCommand(InputBuffer buffer)
 void setup()
 {
 // put your setup code here, to run once:
+Serial.begin(115200);
+Serial.println("INIT");
+
 #ifndef TFT130
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
+#endif
+
+#ifdef PCA9586_SRV
+  Wire.setClock(400000);
+  pwm.begin();
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(10);
+  fuelmeter.init();
+  airpressure.init();
+  speedometer.init();
+  tachometer.init();
+  oilPressure.init();
+  waterTemp.init();
+  oilTemp.init();
+  brakeTemp.init();
 #endif
 
 #ifdef ATMEGA32U4
   Keyboard.begin();
 #endif
 
-  Serial.begin(115200);
-  Serial.println("AT command test handler");
+  
   #ifdef TM1638_D
   tmb.displayBegin();
   #endif
@@ -693,6 +791,8 @@ void setup()
   mylcd.Fill_Screen(BLACK);
   initDisplay();
 #endif
+
+Serial.println("DONE");
 }
 
 void serialEvent()
@@ -725,6 +825,7 @@ void serialEvent()
       break;
     }
   }
+  
 }
 
 uint8_t oldBtn;
