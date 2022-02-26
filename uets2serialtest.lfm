@@ -1,7 +1,7 @@
 object Form1: TForm1
-  Left = 369
+  Left = 422
   Height = 468
-  Top = 418
+  Top = 430
   Width = 1298
   Caption = 'Form1'
   ClientHeight = 468
@@ -148,7 +148,7 @@ object Form1: TForm1
   object seGear: TSpinEdit
     Left = 272
     Height = 28
-    Top = 148
+    Top = 152
     Width = 112
     MaxValue = 16
     OnChange = seGearChange
